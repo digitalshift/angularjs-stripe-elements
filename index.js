@@ -10,14 +10,40 @@
     .component('stripeElement', getStripeElementComponent())
 
   function StripeElementsProvider () {
-    this.apiKey = null
+    var provider = this
 
-    this.setAPIKey = function (apiKey) {
-      this.apiKey = apiKey
+    provider.apiKey = null
+    provider.defaultElementsOptions = {}
+
+    provider.setAPIKey = function (apiKey) {
+      provider.apiKey = apiKey
     }
 
-    this.$get = function () {
-      return Stripe(this.apiKey)
+    provider.setDefaultElementsOptions = function (opts) {
+      provider.defaultElementsOptions = opts
+    }
+
+    provider.$get = function () {
+      return function (opts) {
+        return wrap(Stripe(provider.apiKey, opts))
+      }
+    }
+
+    function wrap (stripe) {
+      var proxy = new Proxy(stripe, {
+        get: function (target, key) {
+          if (key == 'elements') {
+            return function (opts) {
+              opts = angular.merge({}, provider.defaultElementsOptions, opts)
+              return target.elements(opts)
+            }
+          } else {
+            return target[key]
+          }
+        }
+      })
+
+      return proxy
     }
   }
 
